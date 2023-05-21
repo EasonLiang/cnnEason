@@ -1,0 +1,7 @@
+build/
+.vscode/
+eason.o
+in2_out2_h1n2.o
+python_eason_dnn/
+__pycache__/
+*.pyc
