@@ -56,7 +56,7 @@ class eason
 
 		void updateWeights(Fun_Ret_double_In_double fun);
 		void forward(Fun_Ret_double_In_double fun);
-		void backward(Fun_Ret_double_In_double fun, unsigned int turns, unsigned int last_turns, bool logOut);
+		double backward(Fun_Ret_double_In_double fun, unsigned int turns, unsigned int last_turns, bool logOut,bool autoTrain, double mse_threshold);
 	public:
 		vector<double> input = {0.05,0.10}, target_output = {0.01, 0.99};
 		signed char setWeightBias(	vector<double> weights_h1n2_in, double bias_h1n2_in,
@@ -159,7 +159,8 @@ void eason::updateWeights(Fun_Ret_double_In_double fun)
 	this->weights_end[8-5] = w8 -  r * (out_o2 - t_o2) * derivate_o2 * out_h2;
 }
 
-void eason::backward(Fun_Ret_double_In_double fun , unsigned int current_turns, unsigned int last_turns, bool logOut=true)
+double eason::backward(Fun_Ret_double_In_double fun , unsigned int current_turns, unsigned int last_turns,
+					bool logOut=true, bool autoTrain=false, double mse_threshold=0.0f )
 {
 	this->updateWeights(fun);
 
@@ -169,25 +170,42 @@ void eason::backward(Fun_Ret_double_In_double fun , unsigned int current_turns, 
 
 	this->layer_output_auxiliary.clear();
 
-	if(true == logOut || current_turns == last_turns) {
-		cout<< fixed << setprecision(PRECISION) <<"mse_updated: " << mse_updated << " ; ( target_o1_updated: " << t_o1_updated ;
-		cout<< " ; target_o2_updated: "<<t_o2_updated <<" ) "<< endl;
-		cout << "\\ =========================================== turns : "<<current_turns<<" ========================================== /"<<endl<<endl;
+	if ( ! autoTrain ) {
+		if(true == logOut || current_turns == last_turns) {
+			cout<< fixed << setprecision(PRECISION) <<"mse_updated: " << mse_updated << " ; ( target_o1_updated: " << t_o1_updated ;
+			cout<< " ; target_o2_updated: "<<t_o2_updated <<" ) "<< endl;
+			cout << "\\ =========================================== turns : "<<current_turns<<" ========================================== /"<<endl<<endl;
+		}
+		if(current_turns == last_turns) {
+			cout<<"\t  Layer-end-output \"Wanted\" output_o1 : "<< this->target_output[0] <<" ; output_o2 : "<<this->target_output[1]<<endl;
+		}
 	}
-	if(current_turns == last_turns) {
-		cout<<"\t  Layer-end-output \"Wanted\" output_o1 : "<< this->target_output[0] <<" ; output_o2 : "<<this->target_output[1]<<endl;
-	}
+
+	return mse_updated;
 }
 
-void eason::train(unsigned int turns=20, bool logOut=true, bool autoTrain=false, double mse_threshold=0.0f)
+void eason::train(unsigned int turns=20, bool logOut=true, bool autoTrain=false, double mse_threshold=0.0)
 {
 	Fun_Ret_double_In_double fun = getActivationFun("sigmoid");
-
-	for ( int i = 0 ;i < turns ; i++) {
-		this->forward(fun);
-
-		this->backward(fun,i+1, turns,logOut);
+	if ( ! autoTrain ) {
+		for ( int i = 0 ;i < turns ; i++) {
+			this->forward(fun);
+			this->backward(fun,i+1, turns,logOut, 0, 0.0 );
+		}
+	} else {
+		double mse = 0.0;
+		unsigned long long epoch=0;
+		do {
+			this->forward(fun);
+			mse = this->backward(fun, 0, 0, logOut, true, mse_threshold);
+			epoch+=1;
+		}	while(mse > mse_threshold);
+		double t_o1_updated = (*fun)(auxiliary_out_end(fun, 1));
+		double t_o2_updated = (*fun)(auxiliary_out_end(fun, 2));
+		cout<<fixed<<setprecision(PRECISION)<<"\tmse: "<<mse<<" ; ( target_o1_updated: "<<t_o1_updated<<" ; target_o2_updated: "<<t_o2_updated<<"; epoch: "<<epoch<<" ) "<<endl;
+		cout<<"\t  Layer-end-output \"Wanted\" output_o1 : "<< this->target_output[0] <<" ; output_o2 : "<<this->target_output[1]<<endl;
 	}
+
 	cout<<"last parameters group in turns("<<turns<<") :  w1= "<<this->weights_h1n2[0]<<" ; w2= "<<this->weights_h1n2[1]<<" ; w3= "<<this->weights_h1n2[2];
 	cout<<" ; w4= "<<this->weights_h1n2[3]<<endl<<" \t\t\t w5= "<<this->weights_end[0]<<" ; w6= "<<weights_end[1];
 	cout<<" ; w7= "<<weights_end[2]<<" ; w8= "<<weights_end[3]<<endl<<endl;
@@ -196,9 +214,10 @@ void eason::train(unsigned int turns=20, bool logOut=true, bool autoTrain=false,
 int main()
 {
 	eason element;
-	element.train(80000);	//turns=1 : mse : 0.291027774	// turns=2 : mse : 0.283547133
+//	element.train(80000);	//turns=1 : mse : 0.291027774	// turns=2 : mse : 0.283547133
 	element.setInput_TargetOutput({input_i1,input_i2},{output_o1,output_o2});
-	element.train(8000,false);
+//	element.train(8000,false);
+	element.train(0,false,true,0.000027985);
 
 	cout<<"DNN for a 3 layer neural network"<<fixed<<setprecision(2)<<endl;
 	cout<<"Layer-start-input input_i1 : "<< element.input[0] <<" ; input_i2 : "<< element.input[1] <<endl;
