@@ -1,22 +1,5 @@
-#include <iostream>
-#include <vector>
-#include <iomanip>
-#include <cmath>
-using namespace std;
-
-#define input_i1 0.05
-#define input_i2 0.1
-#define output_o1 0.13
-#define output_o2 0.99
-#define PRECISION	9
-#define MAGIC_EXCLUDE_double 98765.01234f
-
-// name rule for suffix :
-//		h1n2 means this parameter works on 1'st hidden layer with 2 neurons
-//		end means this parameter works on end layers
-
-typedef  double (*Fun_Ret_double_In_double)(double);
-
+#include "Eason.h"
+__asm__(".symver realpath,realpath@GLIBC_2.2.5");
 double actvFunSigmoid(double in)
 {
 	return 1/(1+exp(-1*in));
@@ -44,28 +27,7 @@ Fun_Ret_double_In_double getActivationFun(string funName)
 		return nullptr;
 }
 
-class eason
-{
-	private:
-		vector<double> weights_h1n2 = {0.15,0.2,0.25,0.3}, weights_end = {0.40, 0.45, 0.50, 0.55};
-		double bias_h1n2 = 0.35, bias_end=0.6 , learning_rate = 0.5 ;
-		vector<double> layer_output_auxiliary;
-
-		double auxiliary_out_hidden(unsigned char hLayerOrder);
-		double auxiliary_out_end(Fun_Ret_double_In_double fun,unsigned char eLayerOrder);
-
-		void updateWeights(Fun_Ret_double_In_double fun);
-		void forward(Fun_Ret_double_In_double fun);
-		double backward(Fun_Ret_double_In_double fun, unsigned int turns, unsigned int last_turns, bool logOut,bool autoTrain, double mse_threshold);
-	public:
-		vector<double> input = {0.05,0.10}, target_output = {0.01, 0.99};
-		signed char setWeightBias(	vector<double> weights_h1n2_in, double bias_h1n2_in,
-									vector<double> weights_end_in, double bias_end_in, double learning_rate_in);
-		signed char setInput_TargetOutput(vector<double> input, vector<double> target_output);
-		void train(unsigned int turns, bool logOut, bool autoTrain, double mse_threshold);
-};
-
-double eason::auxiliary_out_hidden(unsigned char hLayerOrder)
+double Eason::auxiliary_out_hidden(unsigned char hLayerOrder)
 {
 	if(1 == hLayerOrder)
 		return this->weights_h1n2[1-1] * this->input[1-1] + this->weights_h1n2[2-1] * this->input[2-1] + this->bias_h1n2 ;
@@ -73,7 +35,7 @@ double eason::auxiliary_out_hidden(unsigned char hLayerOrder)
 		return this->weights_h1n2[3-1] * this->input[1-1] + this->weights_h1n2[4-1] * this->input[2-1] + this->bias_h1n2 ;
 	else return MAGIC_EXCLUDE_double;
 }
-double eason::auxiliary_out_end(Fun_Ret_double_In_double fun, unsigned char eLayerOrder)
+double Eason::auxiliary_out_end(Fun_Ret_double_In_double fun, unsigned char eLayerOrder)
 {
 	if(1 == eLayerOrder)
 		return 	this->weights_end[5-5]*(*fun)(auxiliary_out_hidden(1)) + \
@@ -83,7 +45,7 @@ double eason::auxiliary_out_end(Fun_Ret_double_In_double fun, unsigned char eLay
 				this->weights_end[8-5]*(*fun)(auxiliary_out_hidden(2)) + this->bias_end ;
 	else return MAGIC_EXCLUDE_double ;
 }
-signed char eason::setWeightBias(vector<double> weights_h1n2_in, double bias_h1n2_in,
+signed char Eason::setWeightBias(vector<double> weights_h1n2_in, double bias_h1n2_in,
 	vector<double> weights_end_in, double bias_end_in, double learning_rate_in)
 {
 	if(weights_h1n2_in.size() == this->weights_h1n2.size()) {
@@ -103,7 +65,7 @@ signed char eason::setWeightBias(vector<double> weights_h1n2_in, double bias_h1n
 	this->learning_rate = learning_rate_in;
 	return 0;
 }
-signed char eason::setInput_TargetOutput(vector<double> input_in, vector<double> target_output_in)
+signed char Eason::setInput_TargetOutput(vector<double> input_in, vector<double> target_output_in)
 {
 	if(input_in.size() == this->input.size()) {
 		for(int i = 0 ; i< input_in.size(); i++) {
@@ -120,7 +82,22 @@ signed char eason::setInput_TargetOutput(vector<double> input_in, vector<double>
 	return 0;
 }
 
-void eason::forward(Fun_Ret_double_In_double fun)
+void Eason::restoreWeights(void)
+{
+	this->weights_h1n2[0] = 0.15 , this->weights_h1n2[1] = 0.20 ;
+	this->weights_h1n2[2] = 0.25 , this->weights_h1n2[3] = 0.3 ;
+	this->weights_end[0] = 0.40, this->weights_end[1] = 0.45 ;
+	this->weights_end[2] = 0.50, this->weights_end[3] = 0.55 ;
+}
+
+void Eason::showLastWeights(string str)
+{
+	cout<<"last parameters group "<<str<<"w1= "<<this->weights_h1n2[0]<<" ; w2= "<<this->weights_h1n2[1]<<" ; w3= "<<this->weights_h1n2[2];
+	cout<<" ; w4= "<<this->weights_h1n2[3]<<endl<<" \t\t\t w5= "<<this->weights_end[0]<<" ; w6= "<<weights_end[1];
+	cout<<" ; w7= "<<weights_end[2]<<" ; w8= "<<weights_end[3]<<endl<<endl;
+}
+
+void Eason::forward(Fun_Ret_double_In_double fun)
 {
 	this->layer_output_auxiliary.push_back( (*fun)(auxiliary_out_hidden(1)) );
 	this->layer_output_auxiliary.push_back( (*fun)(auxiliary_out_end(fun, 1)) );
@@ -128,7 +105,7 @@ void eason::forward(Fun_Ret_double_In_double fun)
 	this->layer_output_auxiliary.push_back( (*fun)(auxiliary_out_end(fun, 2)) );
 }
 
-void eason::updateWeights(Fun_Ret_double_In_double fun)
+void Eason::updateWeights(Fun_Ret_double_In_double fun)
 {
 	double out_h1 = this->layer_output_auxiliary[0], out_h2 = this->layer_output_auxiliary[2];
 	double out_o1 = this->layer_output_auxiliary[1], out_o2 = this->layer_output_auxiliary[3];
@@ -159,7 +136,7 @@ void eason::updateWeights(Fun_Ret_double_In_double fun)
 	this->weights_end[8-5] = w8 -  r * (out_o2 - t_o2) * derivate_o2 * out_h2;
 }
 
-double eason::backward(Fun_Ret_double_In_double fun , unsigned int current_turns, unsigned int last_turns,
+double Eason::backward(Fun_Ret_double_In_double fun , unsigned int current_turns, unsigned int last_turns,
 					bool logOut=true, bool autoTrain=false, double mse_threshold=0.0f )
 {
 	this->updateWeights(fun);
@@ -184,7 +161,7 @@ double eason::backward(Fun_Ret_double_In_double fun , unsigned int current_turns
 	return mse_updated;
 }
 
-void eason::train(unsigned int turns=20, bool logOut=true, bool autoTrain=false, double mse_threshold=0.0)
+void Eason::train(unsigned int turns, bool logOut, bool autoTrain, double mse_threshold)
 {
 	Fun_Ret_double_In_double fun = getActivationFun("sigmoid");
 	string str("in turn("+to_string(turns)+") : ");
@@ -207,25 +184,15 @@ void eason::train(unsigned int turns=20, bool logOut=true, bool autoTrain=false,
 		cout<<"\t  Layer-end-output \"Wanted\" output_o1 : "<< this->target_output[0] <<" ; output_o2 : "<<this->target_output[1]<<endl;
 		str="after inferring automatically: ";
 	}
-
-	cout<<"last parameters group "<<str<<"w1= "<<this->weights_h1n2[0]<<" ; w2= "<<this->weights_h1n2[1]<<" ; w3= "<<this->weights_h1n2[2];
-	cout<<" ; w4= "<<this->weights_h1n2[3]<<endl<<" \t\t\t w5= "<<this->weights_end[0]<<" ; w6= "<<weights_end[1];
-	cout<<" ; w7= "<<weights_end[2]<<" ; w8= "<<weights_end[3]<<endl<<endl;
+	this->showLastWeights(str);
+	this->restoreWeights();
 }
 
-int main(int argc, char ** argv)
+Eason::Eason()
 {
-	eason element;
-//	element.train(80000);	//turns=1 : mse : 0.291027774	// turns=2 : mse : 0.283547133
-	element.setInput_TargetOutput({input_i1,input_i2},{output_o1,output_o2});
-	if ( argc > 1) {
-		element.train(0,false,true,stod(string(argv[1])));
-	} else {
-		element.train(8000,false);
-	}
-
-	cout<<"DNN for a 3 layer neural network"<<fixed<<setprecision(2)<<endl;
-	cout<<"Layer-start-input input_i1 : "<< element.input[0] <<" ; input_i2 : "<< element.input[1] <<endl;
-	cout<<"Layer-end-output \"Wanted\" output_o1 : "<< element.target_output[0] <<" ; output_o2 : "<<element.target_output[1]<<endl;
-	return 0;
+	cout << "===== @@ Constructor() to show author \"Eason\" when releasing for python "<<endl;
+}
+Eason::~Eason()
+{
+	cout << "===== @@ Destructor reserved by author Eason " << endl;
 }
