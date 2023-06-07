@@ -187,6 +187,7 @@ double eason::backward(Fun_Ret_double_In_double fun , unsigned int current_turns
 void eason::train(unsigned int turns=20, bool logOut=true, bool autoTrain=false, double mse_threshold=0.0)
 {
 	Fun_Ret_double_In_double fun = getActivationFun("sigmoid");
+	string str("in turn("+to_string(turns)+") : ");
 	if ( ! autoTrain ) {
 		for ( int i = 0 ;i < turns ; i++) {
 			this->forward(fun);
@@ -204,20 +205,24 @@ void eason::train(unsigned int turns=20, bool logOut=true, bool autoTrain=false,
 		double t_o2_updated = (*fun)(auxiliary_out_end(fun, 2));
 		cout<<fixed<<setprecision(PRECISION)<<"\tmse: "<<mse<<" ; ( target_o1_updated: "<<t_o1_updated<<" ; target_o2_updated: "<<t_o2_updated<<"; epoch: "<<epoch<<" ) "<<endl;
 		cout<<"\t  Layer-end-output \"Wanted\" output_o1 : "<< this->target_output[0] <<" ; output_o2 : "<<this->target_output[1]<<endl;
+		str="after inferring automatically: ";
 	}
 
-	cout<<"last parameters group in turns("<<turns<<") :  w1= "<<this->weights_h1n2[0]<<" ; w2= "<<this->weights_h1n2[1]<<" ; w3= "<<this->weights_h1n2[2];
+	cout<<"last parameters group "<<str<<"w1= "<<this->weights_h1n2[0]<<" ; w2= "<<this->weights_h1n2[1]<<" ; w3= "<<this->weights_h1n2[2];
 	cout<<" ; w4= "<<this->weights_h1n2[3]<<endl<<" \t\t\t w5= "<<this->weights_end[0]<<" ; w6= "<<weights_end[1];
 	cout<<" ; w7= "<<weights_end[2]<<" ; w8= "<<weights_end[3]<<endl<<endl;
 }
 
-int main()
+int main(int argc, char ** argv)
 {
 	eason element;
 //	element.train(80000);	//turns=1 : mse : 0.291027774	// turns=2 : mse : 0.283547133
 	element.setInput_TargetOutput({input_i1,input_i2},{output_o1,output_o2});
-//	element.train(8000,false);
-	element.train(0,false,true,0.000027985);
+	if ( argc > 1) {
+		element.train(0,false,true,stod(string(argv[1])));
+	} else {
+		element.train(8000,false);
+	}
 
 	cout<<"DNN for a 3 layer neural network"<<fixed<<setprecision(2)<<endl;
 	cout<<"Layer-start-input input_i1 : "<< element.input[0] <<" ; input_i2 : "<< element.input[1] <<endl;
